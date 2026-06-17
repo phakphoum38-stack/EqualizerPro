@@ -1,0 +1,22 @@
+{
+    "cmake.ignoreCMakeListsMissing": true,
+    "netbeans.jdkhome": "c:\\Program Files\\Eclipse Adoptium\\jdk-17.0.19.10-hotspot",
+    "netbeans.project.jdkhome": "c:\\Program Files\\Eclipse Adoptium\\jdk-17.0.19.10-hotspot",
+    "java.jdt.ls.java.home": "c:\\Program Files\\Eclipse Adoptium\\jdk-17.0.19.10-hotspot",
+    "java.configuration.runtimes": [
+        {
+            "name": "JavaSE-17",
+            "path": "c:\\Program Files\\Eclipse Adoptium\\jdk-17.0.19.10-hotspot"
+        }
+    ],
+    "terminal.integrated.env.windows": {
+        "JAVA_HOME": "c:\\Program Files\\Eclipse Adoptium\\jdk-17.0.19.10-hotspot",
+        "PATH": "c:\\Program Files\\Eclipse Adoptium\\jdk-17.0.19.10-hotspot\\bin;${env:PATH}"
+    },
+    "maven.terminal.customEnv": [
+        {
+            "environmentVariable": "JAVA_HOME",
+            "value": "c:\\Program Files\\Eclipse Adoptium\\jdk-17.0.19.10-hotspot"
+        }
+    ]
+}
