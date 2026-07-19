@@ -1,4 +1,4 @@
-name: Build unsigned iOS IPA
+name: Build all platforms
 
 on:
   workflow_dispatch:
@@ -8,7 +8,7 @@ on:
         required: true
         default: 1.2.0
       build_number:
-        description: iOS build number
+        description: Build number
         required: true
         default: "3"
   push:
@@ -17,8 +17,14 @@ on:
       - main
     paths:
       - .github/workflows/build-ios.yml
+      - android/**
       - ios/**
       - lib/**
+      - linux/**
+      - macos/**
+      - test/**
+      - web/**
+      - windows/**
       - pubspec.yaml
       - pubspec.lock
 
@@ -26,18 +32,19 @@ permissions:
   contents: read
 
 concurrency:
-  group: equalizer-pro-ios-${{ github.ref }}
+  group: equalizer-pro-all-${{ github.ref }}
   cancel-in-progress: true
 
-jobs:
-  build-ios:
-    name: Build DSP IPA
-    runs-on: macos-15
-    timeout-minutes: 45
-    env:
-      BUILD_NAME: ${{ inputs.build_name || '1.2.0' }}
-      BUILD_NUMBER: ${{ inputs.build_number || '3' }}
+env:
+  FLUTTER_VERSION: 3.44.4
+  BUILD_NAME: ${{ inputs.build_name || '1.2.0' }}
+  BUILD_NUMBER: ${{ inputs.build_number || '3' }}
 
+jobs:
+  validate:
+    name: Validate Flutter project
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Check out source
         uses: actions/checkout@v5
@@ -45,7 +52,263 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: 3.44.4
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Install packages
+        run: flutter pub get
+
+      - name: Check formatting
+        run: dart format --output=none --set-exit-if-changed lib test
+
+      - name: Analyze and test
+        run: |
+          flutter analyze --no-pub
+          flutter test --no-pub --concurrency=1
+
+  android:
+    name: Build Android APK and AAB
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Install packages
+        run: flutter pub get
+
+      - name: Build Android release packages
+        run: |
+          flutter build apk --release --build-name="$BUILD_NAME" --build-number="$BUILD_NUMBER"
+          flutter build appbundle --release --build-name="$BUILD_NAME" --build-number="$BUILD_NUMBER"
+
+      - name: Package Android artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p packaging/android
+          cp build/app/outputs/flutter-apk/app-release.apk "packaging/android/equalizer-pro-${BUILD_NAME}-${BUILD_NUMBER}.apk"
+          cp build/app/outputs/bundle/release/app-release.aab "packaging/android/equalizer-pro-${BUILD_NAME}-${BUILD_NUMBER}.aab"
+          (
+            cd packaging/android
+            sha256sum *.apk *.aab > SHA256SUMS.txt
+          )
+
+      - name: Upload Android packages
+        uses: actions/upload-artifact@v7
+        with:
+          name: equalizer-pro-android-${{ env.BUILD_NAME }}-${{ env.BUILD_NUMBER }}
+          path: packaging/android/*
+          if-no-files-found: error
+          retention-days: 30
+
+  web:
+    name: Build Web
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Install packages
+        run: flutter pub get
+
+      - name: Build Web release
+        run: flutter build web --release --no-wasm-dry-run
+
+      - name: Package Web artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p packaging
+          ARCHIVE="equalizer-pro-web-${BUILD_NAME}-${BUILD_NUMBER}.zip"
+          (
+            cd build/web
+            zip -qry "../../packaging/$ARCHIVE" .
+          )
+          (
+            cd packaging
+            sha256sum "$ARCHIVE" > "$ARCHIVE.sha256"
+          )
+
+      - name: Upload Web package
+        uses: actions/upload-artifact@v7
+        with:
+          name: equalizer-pro-web-${{ env.BUILD_NAME }}-${{ env.BUILD_NUMBER }}
+          path: packaging/*
+          if-no-files-found: error
+          retention-days: 30
+
+  windows:
+    name: Build Windows
+    needs: validate
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Install packages
+        run: flutter pub get
+
+      - name: Build Windows release
+        run: flutter build windows --release --build-name="$env:BUILD_NAME" --build-number="$env:BUILD_NUMBER"
+
+      - name: Package Windows artifact
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path packaging | Out-Null
+          $archive = "equalizer-pro-windows-$env:BUILD_NAME-$env:BUILD_NUMBER.zip"
+          Compress-Archive -Path "build\windows\x64\runner\Release\*" -DestinationPath "packaging\$archive" -CompressionLevel Optimal
+          $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath "packaging\$archive").Hash.ToLowerInvariant()
+          "$hash  $archive" | Set-Content -NoNewline -LiteralPath "packaging\$archive.sha256"
+
+      - name: Upload Windows package
+        uses: actions/upload-artifact@v7
+        with:
+          name: equalizer-pro-windows-${{ env.BUILD_NAME }}-${{ env.BUILD_NUMBER }}
+          path: packaging/*
+          if-no-files-found: error
+          retention-days: 30
+
+  linux:
+    name: Build Linux
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake libgtk-3-dev ninja-build pkg-config
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Install packages
+        run: flutter pub get
+
+      - name: Build Linux release
+        run: flutter build linux --release --build-name="$BUILD_NAME" --build-number="$BUILD_NUMBER"
+
+      - name: Package Linux artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p packaging
+          ARCHIVE="equalizer-pro-linux-${BUILD_NAME}-${BUILD_NUMBER}.tar.gz"
+          tar -C build/linux/x64/release -czf "packaging/$ARCHIVE" bundle
+          (
+            cd packaging
+            sha256sum "$ARCHIVE" > "$ARCHIVE.sha256"
+          )
+
+      - name: Upload Linux package
+        uses: actions/upload-artifact@v7
+        with:
+          name: equalizer-pro-linux-${{ env.BUILD_NAME }}-${{ env.BUILD_NUMBER }}
+          path: packaging/*
+          if-no-files-found: error
+          retention-days: 30
+
+  macos:
+    name: Build macOS
+    needs: validate
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Prepare macOS toolchain
+        shell: bash
+        run: |
+          flutter config --enable-swift-package-manager
+          brew list cmake >/dev/null 2>&1 || brew install cmake
+          flutter pub get
+
+      - name: Build macOS release
+        run: flutter build macos --release --build-name="$BUILD_NAME" --build-number="$BUILD_NUMBER"
+
+      - name: Package macOS artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p packaging
+          APP_PATH="$(find build/macos/Build/Products/Release -maxdepth 1 -name '*.app' -print -quit)"
+          test -n "$APP_PATH"
+          ARCHIVE="equalizer-pro-macos-${BUILD_NAME}-${BUILD_NUMBER}.zip"
+          ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "packaging/$ARCHIVE"
+          (
+            cd packaging
+            shasum -a 256 "$ARCHIVE" > "$ARCHIVE.sha256"
+          )
+
+      - name: Upload macOS package
+        uses: actions/upload-artifact@v7
+        with:
+          name: equalizer-pro-macos-${{ env.BUILD_NAME }}-${{ env.BUILD_NUMBER }}
+          path: packaging/*
+          if-no-files-found: error
+          retention-days: 30
+
+  ios:
+    name: Build unsigned iOS IPA
+    needs: validate
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
 
@@ -55,11 +318,6 @@ jobs:
           flutter config --enable-swift-package-manager
           brew list cmake >/dev/null 2>&1 || brew install cmake
           flutter pub get
-
-      - name: Validate Dart source
-        run: |
-          flutter analyze --no-pub
-          flutter test --no-pub
 
       - name: Build unsigned iOS app
         run: >-
@@ -74,9 +332,8 @@ jobs:
         run: |
           set -euo pipefail
           APP_PATH="build/ios/iphoneos/Runner.app"
-          IPA_NAME="equalizer-pro-${BUILD_NAME}-${BUILD_NUMBER}-unsigned.ipa"
+          IPA_NAME="equalizer-pro-ios-${BUILD_NAME}-${BUILD_NUMBER}-unsigned.ipa"
           test -d "$APP_PATH"
-          rm -rf packaging
           mkdir -p packaging/Payload
           ditto "$APP_PATH" packaging/Payload/Runner.app
           (

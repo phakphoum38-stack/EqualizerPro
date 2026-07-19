@@ -47,15 +47,24 @@ flutter build windows --release
 
 The release web bundle is written to `build/web/`. The native DSP engine supports iOS, Android, Windows, macOS, and Linux from the same controller.
 
-## Build the unsigned iOS IPA
+## Build every platform on GitHub
 
-The `Build unsigned iOS IPA` GitHub Actions workflow validates the project on macOS, builds the release app without code signing, packages `Payload/Runner.app` into an IPA, calculates SHA-256, and uploads both files as a workflow artifact.
+The `Build all platforms` GitHub Actions workflow validates formatting, analysis, and tests first. It then builds Android APK/AAB, an unsigned iOS IPA, Web, Windows, Linux, and macOS releases in parallel. Every platform is packaged with a SHA-256 checksum and uploaded as a workflow artifact for 30 days.
 
 Run it from GitHub Actions with the default version inputs, or use:
 
 ```powershell
 gh workflow run build-ios.yml -f build_name=1.2.0 -f build_number=3
 ```
+
+| Artifact | Contents |
+| --- | --- |
+| `equalizer-pro-android-1.2.0-3` | APK, AAB, and `SHA256SUMS.txt` |
+| `equalizer-pro-ios-1.2.0-3` | Unsigned IPA and SHA-256 |
+| `equalizer-pro-web-1.2.0-3` | Deployable Web ZIP and SHA-256 |
+| `equalizer-pro-windows-1.2.0-3` | Windows release ZIP and SHA-256 |
+| `equalizer-pro-linux-1.2.0-3` | Linux release tarball and SHA-256 |
+| `equalizer-pro-macos-1.2.0-3` | macOS app ZIP and SHA-256 |
 
 ## Implementation notes
 
