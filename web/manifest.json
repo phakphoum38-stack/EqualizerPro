@@ -1,12 +1,11 @@
 {
-    "name": "my_app",
-    "short_name": "my_app",
+    "name": "Equalizer Pro",
+    "short_name": "EQ Pro",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
-    "orientation": "portrait-primary",
+    "background_color": "#080B11",
+    "theme_color": "#C8FF3D",
+    "description": "A private audio workspace with playback, presets, effects and a 10-band equalizer.",
     "prefer_related_applications": false,
     "icons": [
         {

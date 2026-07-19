@@ -1,0 +1,98 @@
+name: Build unsigned iOS IPA
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_name:
+        description: App version
+        required: true
+        default: 1.1.0
+      build_number:
+        description: iOS build number
+        required: true
+        default: "2"
+  push:
+    branches:
+      - agent/equalizer-dsp-ipa
+    paths:
+      - .github/workflows/build-ios.yml
+      - ios/**
+      - lib/**
+      - pubspec.yaml
+      - pubspec.lock
+
+permissions:
+  contents: read
+
+concurrency:
+  group: equalizer-pro-ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-ios:
+    name: Build DSP IPA
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      BUILD_NAME: ${{ inputs.build_name || '1.1.0' }}
+      BUILD_NUMBER: ${{ inputs.build_number || '2' }}
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.44.4
+          channel: stable
+          cache: true
+
+      - name: Prepare iOS toolchain
+        shell: bash
+        run: |
+          flutter config --enable-swift-package-manager
+          brew list cmake >/dev/null 2>&1 || brew install cmake
+          flutter pub get
+
+      - name: Validate Dart source
+        run: |
+          flutter analyze --no-pub
+          flutter test --no-pub
+
+      - name: Build unsigned iOS app
+        run: >-
+          flutter build ios
+          --release
+          --no-codesign
+          --build-name="$BUILD_NAME"
+          --build-number="$BUILD_NUMBER"
+
+      - name: Package unsigned IPA
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP_PATH="build/ios/iphoneos/Runner.app"
+          IPA_NAME="equalizer-pro-${BUILD_NAME}-${BUILD_NUMBER}-unsigned.ipa"
+          test -d "$APP_PATH"
+          rm -rf packaging
+          mkdir -p packaging/Payload
+          ditto "$APP_PATH" packaging/Payload/Runner.app
+          (
+            cd packaging
+            /usr/bin/zip -qry -y "$IPA_NAME" Payload
+            shasum -a 256 "$IPA_NAME" > "$IPA_NAME.sha256"
+            /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' Payload/Runner.app/Info.plist
+            /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' Payload/Runner.app/Info.plist
+            /usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' Payload/Runner.app/Info.plist
+          )
+
+      - name: Upload unsigned IPA
+        uses: actions/upload-artifact@v5
+        with:
+          name: equalizer-pro-ios-${{ env.BUILD_NAME }}-${{ env.BUILD_NUMBER }}
+          path: |
+            packaging/*.ipa
+            packaging/*.sha256
+          if-no-files-found: error
+          retention-days: 30
