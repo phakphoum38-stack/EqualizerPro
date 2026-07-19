@@ -14,6 +14,7 @@ on:
   push:
     branches:
       - agent/equalizer-dsp-ipa
+      - main
     paths:
       - .github/workflows/build-ios.yml
       - ios/**
