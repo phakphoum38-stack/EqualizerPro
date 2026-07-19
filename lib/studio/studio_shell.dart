@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'studio_controller.dart';
 import 'studio_pages.dart';
 import 'studio_painters.dart';
+import '../youtube/youtube_page.dart';
 
 class StudioShell extends StatefulWidget {
   const StudioShell({super.key});
@@ -45,6 +46,7 @@ class _StudioShellState extends State<StudioShell> {
                             StudioPage(),
                             PresetsPage(),
                             LibraryPage(),
+                            YoutubePage(),
                           ],
                         ),
                       ),
@@ -160,11 +162,17 @@ class _TopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<StudioController>();
-    final titles = ['Sound studio', 'Sound profiles', 'Your library'];
+    final titles = [
+      'Sound studio',
+      'Sound profiles',
+      'Your library',
+      'YouTube connect',
+    ];
     final subtitles = [
       'Shape every detail of your sound.',
       'Start with a curve, then make it yours.',
       '${controller.tracks.length} tracks in this session.',
+      'Open YouTube, copy a link, and play it here.',
     ];
     return Padding(
       padding: EdgeInsets.fromLTRB(
@@ -421,5 +429,10 @@ const _destinations = [
     'Library',
     Icons.library_music_outlined,
     Icons.library_music_rounded,
+  ),
+  _Destination(
+    'YouTube',
+    Icons.smart_display_outlined,
+    Icons.smart_display_rounded,
   ),
 ];
