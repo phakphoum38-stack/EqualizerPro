@@ -1,0 +1,268 @@
+# ============================================
+# MARKDOWN FLUTTER + RUNTIME RULES
+# Version: 1.0.0
+# Date: 2026-05-13
+# For: Flutter App + AI Agent Markdown System
+# ============================================
+
+
+# ------------------------------------------------
+# PART 1: กฎการ RENDER MARKDOWN ในแอป Flutter
+# ------------------------------------------------
+
+[1.1] LIBRARY ที่แนะนำ
+- Primary: flutter_markdown: ^0.7.4+1
+- Alternative (Advanced): markdown_widget: ^2.3.2+6 (รองรับ custom tag, LaTeX, code highlight ดีกว่า)
+- Code Highlight: flutter_highlight + highlight package
+- LaTeX/Math: flutter_math_fork
+- ห้ามใช้ WebView ในการ render Markdown เพื่อลด overhead และความเสี่ยง XSS
+
+[1.2] PARSER RULES
+- ใช้ GitHub Flavored Markdown (GFM) เป็นมาตรฐานหลัก
+- เปิดใช้งาน extensions: tables, strikethrough, taskList, autolink
+- ปิด HTML rendering โดยเด็ดขาด (disallow unsafe HTML) เพื่อป้องกัน injection: `Markdown(..., allowHtml: false)`
+- รองรับการ escape: \* \_ \` \[ \]
+
+[1.3] RENDERING PERFORMANCE
+- ใช้ SelectableText.rich แทน Text ปกติ เพื่อให้ copy ได้
+- ทำ Markdown caching: cache parsed AST ด้วย LRU cache ขนาด 100 entries
+- สำหรับข้อความยาว > 5000 ตัวอักษร: ใช้ Lazy rendering + Pagination หรือ SliverList
+- ห้าม parse Markdown ใน build() โดยตรง ให้ parse ใน isolate หรือ pre-parse ใน ViewModel
+- ตัวอย่าง:
+  ```dart
+  final mdDoc = await compute(mdParser.parse, rawMarkdown);
+  ```
+
+[1.4] STYLING & THEME
+- สร้าง MarkdownStyleSheet กลาง 1 ตัวต่อ Theme (Light/Dark)
+- กำหนด:
+  - h1: fontSize 28, fontWeight w700, margin top 24 bottom 12
+  - h2: fontSize 22, w600
+  - h3: fontSize 18, w600
+  - p: fontSize 15, lineHeight 1.6
+  - code inline: backgroundColor grey[100], fontFamily JetBrainsMono, fontSize 13
+  - code block: backgroundColor grey[900], text white, padding 12, borderRadius 8
+  - blockquote: borderLeft 4px primary color + background muted
+  - table: border 1px, header bold, alternating row color
+- รองรับ Dark Mode: สลับ stylesheet อัตโนมัติตาม ThemeMode
+
+[1.5] SECURITY RULES
+- ห้าม render <script>, <iframe>, <form>, <img onerror=...>
+- Link: ตรวจสอบ Uri.parse ก่อนเปิด ใช้ canLaunchUrl + launchUrl external
+- Image: อนุญาตเฉพาะ https:// เท่านั้น, ห้าม http และ data URI
+- จำกัดขนาด image: maxWidth = screenWidth, maxHeight = 400, ใช้ cached_network_image
+- ป้องกัน Markdown bomb: จำกัดความลึกของ nesting ไม่เกิน 20 level, จำกัดความยาว input ไม่เกิน 100KB ต่อ message
+
+[1.6] CUSTOM ELEMENTS
+- รองรับ custom syntax:
+  - ==highlight== -> Highlight
+  - :::info, :::warning, :::danger -> Callout box
+  - [[TOC]] -> Table of Contents (auto generate)
+  - @mention -> UserChip widget
+  - #hashtag -> HashtagChip
+- สร้าง MarkdownElementBuilder แยกแต่ละตัว ห้ามรวมในไฟล์เดียว
+
+[1.7] INTERACTION
+- onTapLink: เปิด bottom sheet ยืนยันก่อนเปิด external link
+- onTapImage: เปิด full-screen image viewer (hero animation)
+- LongPress on code block: ปุ่ม Copy
+- รองรับ Selection + Context Menu: Copy, Select All
+
+
+# ------------------------------------------------
+# PART 2: กฎสำหรับ AI AGENT ในการเขียน MARKDOWN
+# ------------------------------------------------
+
+[2.1] PRINCIPLE หลัก
+- Write for render, not for raw text. ทุก Markdown ที่ AI เขียนต้อง render สวยใน flutter_markdown
+- ชัดเจน > สวยงาม. อย่าใช้ Markdown ซับซ้อนถ้าไม่จำเป็น
+- ห้ามใช้ HTML tag เด็ดขาด ยกเว้น <br> ในตาราง (ถ้าจำเป็นจริงๆ)
+
+[2.2] HEADING RULES
+- ใช้ # ถึง ### เท่านั้น (ห้ามใช้ #### ลงไป เพราะอ่านยากบนมือถือ)
+- 1 ไฟล์/ 1 คำตอบ ต้องมี H1 แค่ 1 อัน
+- เว้นบรรทัดว่าง 1 บรรทัดก่อนและหลัง Heading เสมอ
+- ตัวอย่างที่ถูก:
+  ## วิธีการใช้งาน
+  เนื้อหา...
+
+[2.3] TEXT FORMATTING
+- Bold: ใช้ **text** สำหรับ keyword สำคัญเท่านั้น ห้าม bold ทั้งประโยค
+- Italic: ใช้ *text* สำหรับศัพท์เทคนิคภาษาอังกฤษ หรือเน้นเบาๆ
+- Bold+Italic: ห้ามใช้ ***text*** เพราะ render แล้วแยกยาก
+- Strikethrough: ใช้ ~~text~~ เฉพาะเมื่อต้องการบอกว่าข้อมูลเก่า/ยกเลิก
+
+[2.4] LIST RULES
+- Unordered list: ใช้ - เท่านั้น (ห้ามใช้ * หรือ + เพื่อความสม่ำเสมอ)
+- Ordered list: ใช้ 1. 2. 3. และเว้นวรรคหลังจุดเสมอ
+- Nesting: ไม่เกิน 3 ชั้น
+- ทุก list item ต้องเว้นบรรทัดว่างก่อนเริ่ม list block
+- Task list:
+  - [x] ทำเสร็จแล้ว
+  - [ ] ยังไม่ทำ
+
+[2.5] CODE RULES (สำคัญมาก)
+- Inline code: ใช้ `code` สำหรับชื่อไฟล์, ตัวแปร, ฟังก์ชันสั้นๆ เช่น `pubspec.yaml`, `initState()`
+- Code block: ต้องระบุภาษาเสมอ: ```dart, ```json, ```yaml, ```bash
+- ห้ามใช้ code block แบบ indent 4 space (ใช้ ``` เท่านั้น)
+- Code block ต้องสั้น กระชับ ไม่เกิน 30 บรรทัด ถ้ายาวให้แยกเป็นหลาย block
+- ห้ามใส่ line number ใน code block
+
+[2.6] LINK & IMAGE RULES
+- Link: ใช้ [ข้อความ](https://...) แบบ descriptive ห้ามใช้ "คลิกที่นี่"
+- Image: ![alt text ที่มีความหมาย](https://... ) และต้องมี alt text เสมอ
+- ห้ามใช้ลิงก์เปล่าๆ เช่น https://example.com วางโดดๆ ให้ครอบด้วย [ ]
+- ห้ามใช้ relative link
+
+[2.7] TABLE RULES
+- ใช้ตารางเมื่อต้องการเปรียบเทียบเท่านั้น
+- Header ต้องมี | --- | คั่น
+- จัดชิดซ้ายทั้งหมด ห้ามจัดกลาง/ขวา เพราะ flutter_markdown รองรับไม่ดี
+- ไม่เกิน 4 คอลัมน์ และ 10 แถว ถ้าเกินให้เปลี่ยนเป็น List แทน
+- ตัวอย่างที่ถูก:
+  | Feature | GFM | Custom |
+  | --- | --- | --- |
+  | Table | Yes | Yes |
+
+[2.8] BLOCKQUOTE & CALLOUT
+- ใช้ > สำหรับ quote หรืออ้างอิง
+- Callout ของโปรเจคนี้:
+  > **INFO:** ข้อมูลเพิ่มเติม
+  > **WARNING:** คำเตือน
+  > **DANGER:** อันตราย ห้ามทำ
+
+[2.9] HORIZONTAL RULE
+- ใช้ --- บรรทัดเดียวเดี่ยวๆ เพื่อคั่น section ใหญ่
+- ห้ามใช้ *** หรือ ___ 
+
+[2.10] AI AGENT OUTPUT STRUCTURE (TEMPLATE)
+  ```markdown
+  # Title (H1 เดียว)
+
+  ประโยคเกริ่นสั้นๆ 1-2 บรรทัด
+
+  ## Section 1
+
+  เนื้อหา...
+
+  - bullet 1
+  - bullet 2
+
+  ```dart
+  // code ตัวอย่างสั้นๆ
+  ```
+
+  > **INFO:** note
+
+  ---
+  ```
+
+[2.11] FORBIDDEN PATTERNS FOR AI
+- ห้ามใช้ emoji เกิน 2 ตัวต่อ paragraph
+- ห้ามใช้ Heading ต่อกันโดยไม่มีเนื้อหาคั่น
+- ห้ามใช้ Bold ซ้อนใน Heading: ## **Title** (ผิด)
+- ห้ามใช้ HTML entity: &nbsp; &lt; &gt;
+- ห้ามสร้าง Markdown ที่ต้องเลื่อนแนวนอน (horizontal scroll)
+
+
+# ------------------------------------------------
+# PART 3: กฎ RUNTIME ของโปรเจค
+# ------------------------------------------------
+
+[3.1] PROJECT STRUCTURE
+lib/
+  core/
+    markdown/
+      parser/
+        markdown_parser.dart
+        sanitizer.dart
+        cache_manager.dart
+      renderer/
+        markdown_renderer.dart
+        style_sheet.dart
+        builders/
+          code_builder.dart
+          image_builder.dart
+          callout_builder.dart
+  features/
+    chat/
+      data/
+      domain/
+      presentation/
+        widgets/
+          markdown_message_bubble.dart
+
+[3.2] RUNTIME LIFECYCLE
+1. INPUT: raw string จาก AI / User -> Sanitizer.checkLength() -> Sanitizer.stripUnsafeHtml()
+2. PARSE: compute() in isolate -> AST Node list
+3. CACHE: key = hash(rawString) -> store in LRU
+4. RENDER: Markdown widget + builders + stylesheet
+5. INTERACTION: attach gesture detectors
+6. DISPOSE: clear cache เมื่อ memory pressure สูง
+
+[3.3] STATE MANAGEMENT
+- ใช้ Riverpod / Bloc: สร้าง MarkdownState { status: loading | success | error, nodes, errorMessage }
+- ห้าม setState ใน Widget ที่ render Markdown
+- Error fallback: ถ้า parse ล้มเหลว -> แสดง raw text ใน SelectableText ธรรมดา
+
+[3.4] PERFORMANCE BUDGET
+- Parse time: < 16ms ต่อข้อความ 1KB (ห้ามเกิน frame budget)
+- Memory: cache ไม่เกิน 10MB
+- Build time: Markdown widget build < 50ms
+- ใช้ RepaintBoundary ครอบ Markdown widget ทุกอันเพื่อลด repaint
+
+[3.5] ERROR HANDLING
+- MarkdownTooLongException: ถ้า input > 100KB -> ตัด + แสดงปุ่ม "Show more"
+- MarkdownNestingTooDeepException: ถ้า nesting > 20 -> flatten และ log warning
+- ImageLoadFailed: แสดง placeholder + ปุ่ม retry
+- LinkLaunchFailed: แสดง SnackBar "ไม่สามารถเปิดลิงก์ได้"
+
+[3.6] TESTING RULES
+- Unit test: parser ต้อง test ครอบคลุม GFM 100%
+- Widget test: test render ทุก builder (code, image, table, callout)
+- Golden test: snapshot Light/Dark theme
+- Fuzz test: ส่ง random string 10,000 เคส ต้องไม่ crash
+
+[3.7] CONFIG (runtime_config.json)
+```json
+{
+  "markdown": {
+    "maxInputLength": 102400,
+    "maxNestingDepth": 20,
+    "enableCache": true,
+    "cacheSize": 100,
+    "allowHtml": false,
+    "allowedImageDomains": ["*.githubusercontent.com", "cdn.example.com"],
+    "codeHighlightTheme": "atom-one-dark"
+  },
+  "ai_agent": {
+    "defaultMarkdownFlavor": "GFM",
+    "maxTokensPerResponse": 2048,
+    "forbiddenTags": ["script", "iframe", "form", "style"],
+    "requireLanguageOnCodeBlock": true
+  }
+}
+```
+
+[3.8] LOGGING & ANALYTICS
+- Log ทุกครั้งที่ parse fail พร้อม raw hash (ไม่ใช่ raw content เพื่อ privacy)
+- Track: render_time_ms, cache_hit_rate, image_load_fail_rate
+- ห้าม log เนื้อหา Markdown ของ user แบบเต็ม
+
+[3.9] DEPLOYMENT CHECKLIST
+- [ ] ปิด allowHtml ใน production
+- [ ] เปิด obfuscation สำหรับ parser logic
+- [ ] ตรวจสอบ allowedImageDomains ครบ
+- [ ] ทดสอบบนอุปกรณ์ low-end (RAM 2GB)
+- [ ] ทดสอบ Dark Mode + Font Scale 1.5x
+
+
+# ============================================
+# END OF FILE
+# ============================================
+# วิธีใช้งาน:
+# 1. วางไฟล์นี้ไว้ที่ /docs/Markdown-Flutter-Runtime-Rules.txt
+# 2. Import style_sheet.dart เป็น global provider
+# 3. ให้ AI Agent อ่าน PART 2 ก่อน generate Markdown ทุกครั้ง (ใส่ใน system prompt)
+# 4. CI ต้องรัน markdown_lint โดยใช้กฎจากไฟล์นี้
+# ============================================
