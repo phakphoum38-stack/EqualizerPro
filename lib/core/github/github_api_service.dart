@@ -62,4 +62,20 @@ class GitHubApiService {
     }
     return true;
   }
+
+  // ใหม่: ดึง PR ทั้งหมดมาให้เลือก
+  Future<List<Map<String, dynamic>>> listPullRequests() async {
+    final url = Uri.parse('https://api.github.com/repos/$owner/$repo/pulls?state=open&per_page=50');
+    final res = await http.get(url, headers: headers);
+    if (res.statusCode == 200) {
+      final List data = jsonDecode(res.body);
+      return data.map((pr) => {
+        'number': pr['number'],
+        'title': pr['title'],
+        'branch': pr['head']['ref'],
+        'base': pr['base']['ref'],
+      }).toList().cast<Map<String, dynamic>>();
+    }
+    return [];
+  }
 }
