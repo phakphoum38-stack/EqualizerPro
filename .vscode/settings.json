@@ -1,0 +1,59 @@
+{
+    "cmake.ignoreCMakeListsMissing": true,
+    "netbeans.jdkhome": "c:\\Program Files\\Eclipse Adoptium\\jdk-17.0.19.10-hotspot",
+    "netbeans.project.jdkhome": "c:\\Program Files\\Eclipse Adoptium\\jdk-17.0.19.10-hotspot",
+    "java.jdt.ls.java.home": "c:\\Program Files\\Eclipse Adoptium\\jdk-17.0.19.10-hotspot",
+    "java.configuration.runtimes": [
+        {
+            "name": "JavaSE-17",
+            "path": "c:\\Program Files\\Eclipse Adoptium\\jdk-17.0.19.10-hotspot"
+        }
+    ],
+    "terminal.integrated.env.windows": {
+        "JAVA_HOME": "c:\\Program Files\\Eclipse Adoptium\\jdk-17.0.19.10-hotspot",
+        "PATH": "c:\\Program Files\\Eclipse Adoptium\\jdk-17.0.19.10-hotspot\\bin;${env:PATH}"
+    },
+    "maven.terminal.customEnv": [
+        {
+            "environmentVariable": "JAVA_HOME",
+            "value": "c:\\Program Files\\Eclipse Adoptium\\jdk-17.0.19.10-hotspot"
+        }
+    ],
+    "workbench.editor.autoLockGroups": {
+        "default": true,
+        "workbench.editor.chatSession": true,
+        "workbench.editor.chatDebug": true,
+        "workbench.editor.browser": true,
+        "agentSessionsWelcomePage": true,
+        "workbench.editorinputs.searchEditorInput": true,
+        "notebookOutputEditor": true,
+        "jupyter-notebook": true,
+        "aws-redshift-sql-notebook": true,
+        "robotframework-repl": true,
+        "datapilot-notebook": true,
+        "github-issues": true,
+        "ijnb-notebook": true,
+        "repl": true,
+        "workbench.editors.gettingStartedInput": true,
+        "imagePreview.previewEditor": true,
+        "vscode.audioPreview": true,
+        "vscode.videoPreview": true,
+        "jsProfileVisualizer.cpuprofile.table": true,
+        "jsProfileVisualizer.heapprofile.table": true,
+        "jsProfileVisualizer.heapsnapshot.table": true,
+        "threatComposer.tc.json": true,
+        "workflowStudio.asl": true,
+        "bito.diffView": true,
+        "phpprofiler.cachegrind": true,
+        "gitlens.rebase": true,
+        "hediet.vscode-drawio": true,
+        "hediet.vscode-drawio-text": true,
+        "dbtPowerUser.Mcp": true,
+        "ai-mlstudio.dataEditor": true,
+        "decompiled.javaClass": true,
+        "luna.editor": true,
+        "java.formatterSettingsEditor": true,
+        "mainThreadWebview-markdown.preview": true,
+        "workbench.input.interactive": true
+    }
+}
